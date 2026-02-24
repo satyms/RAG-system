@@ -1,11 +1,3 @@
-Good — that changes how the README should be written.
-
-If the primary goal is **reusability across hackathon projects**, the README should position this as a **plug-and-play RAG engine**, not just a learning experiment.
-
-Below is a clean, minimal README rewritten with that objective.
-
----
-
 # ⚡ RAG Engine — Plug & Play Retrieval-Augmented Generation Module
 
 A modular, reusable RAG (Retrieval-Augmented Generation) system designed to be easily integrated into hackathon projects.
