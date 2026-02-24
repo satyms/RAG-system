@@ -80,8 +80,8 @@ POST /query
 ### Backend
 
 * Python 3.10+
-* FastAPI / Django
-* LangChain or LlamaIndex
+* FastAPI
+* LangChain
 
 ### Embeddings
 
@@ -89,9 +89,7 @@ POST /query
 
 ### Vector Database
 
-* FAISS (default)
-* ChromaDB (persistent)
-* Replaceable with Pinecone / Weaviate
+* FAISS
 
 ### LLM Options
 
