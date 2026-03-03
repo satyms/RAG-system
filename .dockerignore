@@ -1,0 +1,30 @@
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual env
+rag/
+venv/
+.venv/
+
+# Environment
+.env
+
+# Uploads & vector data (runtime)
+uploads/*
+!uploads/.gitkeep
+vector_store_data/*
+!vector_store_data/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Docker volumes
+pgdata/
+qdrant_data/

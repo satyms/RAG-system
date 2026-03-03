@@ -1,39 +1,38 @@
-"""Retrieval — fetch relevant chunks from the vector store."""
+"""Retrieval — embed query, search Qdrant, return ranked chunks."""
 
 from __future__ import annotations
 
 import logging
 
-from langchain_core.documents import Document
-
-from app.core.vector_store import get_vector_store
+from app.config import settings
+from app.core.embeddings import embed_text
+from app.core.vector_store import search_vectors
 
 logger = logging.getLogger(__name__)
 
 
-def retrieve_chunks(query: str, top_k: int = 5) -> list[dict[str, object]]:
+def retrieve_chunks(
+    query: str,
+    top_k: int | None = None,
+    source_filter: str | None = None,
+) -> list[dict]:
     """
-    Return the top-k most similar chunks for the given query.
+    Embed the query, search Qdrant, return top-k results sorted by score.
 
-    Each dict contains: content, source, score.
+    Each result dict: id, score, content, source, chunk_index, page_number, metadata.
     """
-    store = get_vector_store()
-    results: list[tuple[Document, float]] = store.similarity_search_with_score(
-        query, k=top_k
+    k = top_k or settings.TOP_K
+
+    # Embed query
+    query_vector = embed_text(query)
+
+    # Vector search
+    hits = search_vectors(query_vector, top_k=k, source_filter=source_filter)
+
+    # Already sorted by Qdrant (descending cosine similarity)
+    logger.info(
+        "Retrieved %d chunks for query (top_k=%d, source_filter=%s)",
+        len(hits), k, source_filter,
     )
+    return hits
 
-    chunks = []
-    for doc, score in results:
-        # Skip the bootstrap dummy document
-        if doc.page_content.strip() == "__init__":
-            continue
-        chunks.append(
-            {
-                "content": doc.page_content,
-                "source": doc.metadata.get("source", ""),
-                "score": round(float(score), 4),
-            }
-        )
-
-    logger.info("Retrieved %d chunks for query (top_k=%d)", len(chunks), top_k)
-    return chunks
