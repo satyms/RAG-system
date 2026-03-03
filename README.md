@@ -1,176 +1,187 @@
-# ⚡ RAG Engine — Plug & Play Retrieval-Augmented Generation Module
+# RAG System — Production-Grade Retrieval-Augmented Generation
 
-A modular, reusable RAG (Retrieval-Augmented Generation) system designed to be easily integrated into hackathon projects.
+A standalone, production-grade RAG (Retrieval-Augmented Generation) system with multi-agent reasoning, adversarial stress testing, human validation, and a full evaluation pipeline.
 
-This project acts as a **drop-in AI knowledge engine** that can power:
-
-* Document Q&A systems
-* AI chatbots
-* Resume analyzers
-* Legal/medical assistants
-* Campus portals
-* Placement prep platforms
-* Any app requiring contextual AI responses
+This is an **independent project** built to serve as a robust, end-to-end intelligent document retrieval and generation platform. It is not designed as a plug-in for other projects — it is its own complete system.
 
 ---
 
-## 🎯 Purpose
+## What This System Does
 
-Instead of rebuilding RAG logic for every hackathon, this project provides:
-
-* A reusable ingestion pipeline
-* A configurable vector database layer
-* A standardized retrieval interface
-* A pluggable LLM generation module
-
-You integrate it → connect your frontend → customize prompts → ship.
-
----
-
-## 🧠 What This System Does
-
-1. Accept documents (PDF/text)
-2. Chunk and embed them
-3. Store embeddings in a vector database
-4. Retrieve relevant context using semantic similarity
-5. Generate grounded answers using an LLM
+1. Ingest diverse data sources (documents, code, spreadsheets, images)
+2. Parse, chunk, and enrich with metadata
+3. Store in a hybrid database layer (vector + relational)
+4. Route queries through a multi-agent system
+5. Reason over retrieved context using a planning engine
+6. Generate grounded, auditable answers via LLM
+7. Evaluate quality and performance continuously
+8. Stress-test against adversarial prompts
+9. Gate outputs through human validation roles
 
 ---
 
-## 🏗 Modular Architecture
+## System Architecture
 
-```
-Frontend (Any Project)
-	│
-	▼
-RAG API Layer
-	│
- ┌───────────────┬────────────────┐
- │ Ingestion     │ Query Engine   │
- │ Pipeline      │                │
- └───────────────┴────────────────┘
-	│
-Vector Database
-	│
-Embedding Model + LLM
+```mermaid
+flowchart TD
+    DS["Data Sources\nDocuments · Code · Spreadsheets · Images"]
+    DP["Data Processing\nDocument Parsing · Structure Analysis\nChunking · Metadata Creation"]
+    DB["Database Layer\nVector Store · Relational Database"]
+    MAS["Multi-Agent System\nAgent 1 · Agent 2 · Agent N"]
+    RE["Reasoning Engine\nPlanning · Tool Execution · Routing"]
+    EVAL["Evaluation\nLLM Judges · Precision/Recall · Latency · Cost"]
+    ST["Stress Testing\nPrompt Injection · Biased Opinion · Information Evasion"]
+    HV["Human Validation\nGatekeeper · Auditor · Strategist"]
+
+    DS --> DP
+    DP --> DB
+    DB --> MAS
+    MAS --> RE
+    RE --> EVAL
+    EVAL --> ST
+    ST --> HV
+    HV -->|Feedback Loop| RE
 ```
 
+### Layer Breakdown
+
+| Layer | Components | Responsibility |
+|---|---|---|
+| **Data Sources** | Documents, Code, Spreadsheets, Images | Raw input ingestion |
+| **Data Processing** | Parser, Structure Analyzer, Chunker, Metadata Creator | Transform raw data into structured, retrievable units |
+| **Database Layer** | Vector Store (FAISS/Chroma), Relational DB | Persist embeddings and structured metadata |
+| **Multi-Agent System** | Specialized task agents | Parallel or sequential task execution |
+| **Reasoning Engine** | Planner, Tool Executor, Router | Decide how to answer — decompose, retrieve, act |
+| **Evaluation** | LLM-as-Judge, Precision/Recall, Latency/Cost metrics | Measure answer quality and system performance |
+| **Stress Testing** | Prompt Injection, Biased Opinion, Information Evasion | Adversarial robustness testing |
+| **Human Validation** | Gatekeeper, Auditor, Strategist | Human-in-the-loop review and approval |
+
 ---
 
-## 🧩 Designed for Easy Integration
-
-You can integrate this system into:
-
-* Django backend (as a service module)
-* FastAPI microservice
-* Node backend via REST API
-* Direct Python integration
-
-Simply call:
+## Core API
 
 ```
-POST /ingest
-POST /query
+POST /ingest    → Parse, chunk, embed, and store documents
+POST /query     → Retrieve context and generate grounded responses
+GET  /health    → System health check
 ```
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
-### Backend
-
-* Python 3.10+
-* FastAPI
-* LangChain
-
-### Embeddings
-
-* SentenceTransformers (BGE / MiniLM)
-
-### Vector Database
-
-* FAISS
-
-### LLM Options
-
-* Open-source (Mistral, LLaMA, Gemma)
-* OpenAI-compatible APIs
-* Local inference
+| Category | Technology |
+|---|---|
+| **Backend** | Python 3.10+, FastAPI |
+| **Orchestration** | LangChain, LangGraph |
+| **Embeddings** | SentenceTransformers (BGE / MiniLM) |
+| **Vector Store** | FAISS / ChromaDB |
+| **Relational DB** | SQLite / PostgreSQL |
+| **LLM** | Gemini, OpenAI-compatible APIs, Local (Mistral / LLaMA / Gemma) |
+| **Evaluation** | LLM-as-Judge, RAGAS metrics |
+| **Multi-Agent** | LangGraph agent graphs |
 
 ---
 
-## 📦 Minimal Setup
+## Setup
 
 ```bash
-pip install fastapi uvicorn langchain transformers sentence-transformers faiss-cpu chromadb pypdf
+# Clone the repo
+git clone https://github.com/satyms/RAG-system.git
+cd RAG-system
+
+# Create and activate virtual environment
+python -m venv rag
+.\rag\Scripts\Activate.ps1   # Windows
+# source rag/bin/activate     # macOS/Linux
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the server
+uvicorn app.main:app --reload
 ```
 
-Run:
-
-```bash
-uvicorn main:app --reload
-```
+The API will be available at `http://localhost:8000`
+API docs at `http://localhost:8000/docs`
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-rag-engine/
+RAG-system/
 │
-├── ingestion/
-├── embeddings/
-├── vector_store/
-├── retrieval/
-├── generation/
-└── api/
+├── app/
+│   ├── api/
+│   │   └── routes/          # FastAPI route handlers (ingest, query, health)
+│   ├── core/
+│   │   ├── ingestion.py     # Document parsing, chunking, metadata
+│   │   ├── embeddings.py    # Embedding model interface
+│   │   ├── vector_store.py  # Vector DB operations
+│   │   ├── retrieval.py     # Semantic search & context retrieval
+│   │   └── generation.py   # LLM generation with reasoning
+│   ├── models/
+│   │   └── schemas.py       # Pydantic request/response schemas
+│   ├── utils/
+│   │   └── helpers.py       # Shared utilities
+│   ├── config.py            # System configuration
+│   └── main.py              # FastAPI app entrypoint
+│
+├── static/                  # Frontend UI
+├── uploads/                 # Uploaded documents
+├── vector_store_data/       # Persisted vector store
+└── requirements.txt
 ```
 
-Each module is independent and replaceable.
-
 ---
 
-## 🔄 Standard RAG Flow
+## Data & Query Flow
 
+**Ingestion:**
 ```
-Query → Embed → Vector Search → Retrieve Top-K → Inject Context → Generate Answer
+Raw Document → Parse → Chunk → Embed → Store (Vector DB + Metadata DB)
+```
+
+**Query:**
+```
+User Query → Embed → Vector Search → Retrieve Top-K Chunks
+    → Multi-Agent Routing → Reasoning Engine → LLM Generation
+    → Evaluation → (Stress Test / Human Gate) → Final Response
 ```
 
 ---
 
-## 🎯 Why This Is Hackathon-Friendly
+## Key Design Principles
 
-* Modular design
-* Fast local setup
-* Works offline
-* Replaceable LLM
-* Swappable vector DB
-* Easy API interface
-* Minimal infrastructure requirements
-
-You can adapt it to any domain by:
-
-* Changing prompts
-* Uploading domain documents
-* Switching embedding model
+* **Modular** — every layer is independently replaceable
+* **Multi-agent** — specialized agents for different reasoning tasks
+* **Adversarial-aware** — built-in stress testing against prompt injection, bias, and evasion
+* **Human-in-the-loop** — gatekeeper / auditor / strategist validation layer
+* **Observable** — LLM-as-Judge evaluation with precision, recall, latency, and cost metrics
+* **Offline-capable** — runs fully local with open-source models
 
 ---
 
-## 🧪 Example Use Cases
+## Example Use Cases
 
-* AI Interview Prep Assistant
-* Smart Campus Portal
-* Legal Document Chatbot
-* Healthcare Knowledge Assistant
-* Competitive Coding Platform Helper
-* Resume Feedback Tool
+* Enterprise Document Intelligence
+* Legal Contract Analysis
+* Medical Knowledge Assistant
+* Codebase Q&A
+* Research Paper Summarization
+* Compliance & Audit Automation
 
 ---
 
-## 🔮 Future Enhancements
+## Roadmap
 
-* Hybrid search (BM25 + dense)
-* Reranking model
-* Streaming responses
-* Multi-tenant support
-* Agent-based RAG
+- [ ] Hybrid search (BM25 + dense vector)
+- [ ] Cross-encoder reranking
+- [ ] Streaming responses
+- [ ] Multi-tenant document namespaces
+- [ ] Graph RAG (knowledge graph integration)
+- [ ] Automated red-teaming pipeline
+- [ ] Dashboard UI for evaluation metrics
+- [ ] Full LangGraph multi-agent orchestration
+- [ ] CI/CD with automated RAGAS evaluation on PRs
