@@ -22,85 +22,26 @@ This is an **independent project** built to serve as a robust, end-to-end intell
 
 ## System Architecture
 
-> **Tip:** You can edit and interact with this diagram using [Mermaid Live Editor](https://mermaid.live/). Copy the code below and paste it there for a full-screen, interactive experience.
-
 ```mermaid
-flowchart LR
-    subgraph Input["Data Sources"]
-        DS1[Documents]
-        DS2[Code]
-        DS3[Spreadsheets]
-        DS4[Images]
-    end
-    subgraph Processing["Data Processing"]
-        DP1[Document Parser]
-        DP2[Structure Analyzer]
-        DP3[Chunker]
-        DP4[Metadata Creator]
-    end
-    subgraph Storage["Database Layer"]
-        VS[Vector Store\n(Qdrant/Weaviate)]
-        RD[Relational DB\n(PostgreSQL)]
-    end
-    subgraph Agents["Multi-Agent System"]
-        AG1[Agent 1]
-        AG2[Agent 2]
-        AG3[Agent N]
-    end
-    subgraph Reasoning["Reasoning Engine"]
-        PL[Planner]
-        TE[Tool Executor]
-        CR[Conditional Router]
-    end
-    subgraph Eval["Evaluation"]
-        LJ[LLM Judges]
-        PR[Precision/Recall]
-        LC[Latency/Cost]
-    end
-    subgraph Stress["Stress Testing"]
-        PO[Prompt Injection]
-        BO[Biased Opinion]
-        IE[Information Evasion]
-    end
-    subgraph Human["Human Validation"]
-        GK[Gatekeeper]
-        AU[Auditor]
-        STG[Strategist]
-    end
+flowchart TD
+    DS["Data Sources\nDocuments · Code · Spreadsheets · Images"]
+    DP["Data Processing\nDocument Parsing · Structure Analysis\nChunking · Metadata Creation"]
+    DB["Database Layer\nVector Store · Relational Database"]
+    MAS["Multi-Agent System\nAgent 1 · Agent 2 · Agent N"]
+    RE["Reasoning Engine\nPlanning · Tool Execution · Routing"]
+    EVAL["Evaluation\nLLM Judges · Precision/Recall · Latency · Cost"]
+    ST["Stress Testing\nPrompt Injection · Biased Opinion · Information Evasion"]
+    HV["Human Validation\nGatekeeper · Auditor · Strategist"]
 
-    DS1 --> DP1
-    DS2 --> DP1
-    DS3 --> DP1
-    DS4 --> DP1
-    DP1 --> DP2
-    DP2 --> DP3
-    DP3 --> DP4
-    DP4 --> VS
-    DP4 --> RD
-    VS --> AG1
-    VS --> AG2
-    VS --> AG3
-    RD --> AG1
-    RD --> AG2
-    RD --> AG3
-    AG1 --> PL
-    AG2 --> PL
-    AG3 --> PL
-    PL --> TE
-    TE --> CR
-    CR --> LJ
-    LJ --> PR
-    PR --> LC
-    LC --> PO
-    PO --> BO
-    BO --> IE
-    IE --> GK
-    GK --> AU
-    AU --> STG
-    STG -.-> PL
+    DS --> DP
+    DP --> DB
+    DB --> MAS
+    MAS --> RE
+    RE --> EVAL
+    EVAL --> ST
+    ST --> HV
+    HV -->|Feedback Loop| RE
 ```
-
----
 
 ### Layer Breakdown
 
@@ -131,15 +72,14 @@ GET  /health    → System health check
 
 | Category | Technology |
 |---|---|
-| **Backend**        | FastAPI |
-| **Vector DB**      | Qdrant / Weaviate |
-| **Relational DB**  | PostgreSQL |
-| **Embeddings**     | BGE-large |
-| **Reranker**       | Cross-Encoder |
-| **LLM**            | API (initially), self-hosted later |
-| **Workers**        | Celery + Redis |
-| **Monitoring**     | Prometheus + Grafana |
-| **Deployment**     | Docker + Kubernetes |
+| **Backend** | Python 3.10+, FastAPI |
+| **Orchestration** | LangChain, LangGraph |
+| **Embeddings** | SentenceTransformers (BGE / MiniLM) |
+| **Vector Store** | FAISS / ChromaDB |
+| **Relational DB** | SQLite / PostgreSQL |
+| **LLM** | Gemini, OpenAI-compatible APIs, Local (Mistral / LLaMA / Gemma) |
+| **Evaluation** | LLM-as-Judge, RAGAS metrics |
+| **Multi-Agent** | LangGraph agent graphs |
 
 ---
 
@@ -177,26 +117,17 @@ RAG-system/
 │   │   └── routes/          # FastAPI route handlers (ingest, query, health)
 │   ├── core/
 │   │   ├── ingestion.py     # Document parsing, chunking, metadata
-│   │   ├── embeddings.py    # BGE-large embedding model
-│   │   ├── vector_store.py  # Qdrant/Weaviate operations
+│   │   ├── embeddings.py    # Embedding model interface
+│   │   ├── vector_store.py  # Vector DB operations
 │   │   ├── retrieval.py     # Semantic search & context retrieval
-│   │   ├── reranker.py      # Cross-Encoder reranking
-│   │   └── generation.py    # LLM generation with reasoning
+│   │   └── generation.py   # LLM generation with reasoning
 │   ├── models/
 │   │   └── schemas.py       # Pydantic request/response schemas
-│   ├── workers/
-│   │   └── celery_worker.py # Celery background tasks
 │   ├── utils/
 │   │   └── helpers.py       # Shared utilities
 │   ├── config.py            # System configuration
 │   └── main.py              # FastAPI app entrypoint
 │
-├── monitoring/
-│   ├── prometheus.yml       # Prometheus config
-│   └── grafana/             # Grafana dashboards
-├── deployments/
-│   ├── docker-compose.yml   # Local dev
-│   └── k8s/                 # Kubernetes manifests
 ├── static/                  # Frontend UI
 ├── uploads/                 # Uploaded documents
 ├── vector_store_data/       # Persisted vector store
@@ -245,16 +176,11 @@ User Query → Embed → Vector Search → Retrieve Top-K Chunks
 
 ## Roadmap
 
-- [ ] Qdrant/Weaviate integration
-- [ ] PostgreSQL production support
-- [ ] BGE-large embedding pipeline
-- [ ] Cross-Encoder reranking
-- [ ] Celery + Redis background workers
-- [ ] Prometheus + Grafana monitoring
-- [ ] Docker & Kubernetes deployment
+- [ ] Hybrid search (BM25 + dense vector)
+- [ ] Cross-encoder reranking
 - [ ] Streaming responses
 - [ ] Multi-tenant document namespaces
-- [ ] Self-hosted LLM support
+- [ ] Graph RAG (knowledge graph integration)
 - [ ] Automated red-teaming pipeline
 - [ ] Dashboard UI for evaluation metrics
 - [ ] Full LangGraph multi-agent orchestration
