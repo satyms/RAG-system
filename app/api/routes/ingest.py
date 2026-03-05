@@ -76,6 +76,13 @@ async def ingest_document(
         logger.exception("Ingestion failed for %s", safe_name)
         raise HTTPException(status_code=500, detail=f"Ingestion error: {exc}")
 
+    # Rebuild BM25 index to include new document
+    try:
+        from app.core.bm25_search import build_bm25_index
+        build_bm25_index()
+    except Exception:
+        logger.warning("BM25 index rebuild failed after ingest — non-fatal")
+
     return IngestResponse(
         filename=safe_name,
         chunks=num_chunks,

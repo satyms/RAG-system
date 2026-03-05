@@ -47,6 +47,22 @@ def ensure_collection() -> None:
         logger.info("Qdrant collection already exists: %s", settings.QDRANT_COLLECTION)
 
 
+class EmbeddingDimensionMismatchError(Exception):
+    """Raised when embedding dimensions don't match the expected collection config."""
+    pass
+
+
+def _validate_embedding_dimension(vectors: list[list[float]]) -> None:
+    """Check that all vectors match the configured embedding dimension."""
+    expected = settings.EMBEDDING_DIMENSION
+    for i, vec in enumerate(vectors):
+        if len(vec) != expected:
+            raise EmbeddingDimensionMismatchError(
+                f"Vector {i} has dimension {len(vec)}, expected {expected}. "
+                f"Check EMBEDDING_DIMENSION setting matches your model."
+            )
+
+
 def upsert_embeddings(
     embeddings: list[list[float]],
     payloads: list[dict],
@@ -55,7 +71,10 @@ def upsert_embeddings(
     Upsert embedding vectors with metadata payloads into Qdrant.
 
     Returns list of point IDs (UUID strings).
+    Raises EmbeddingDimensionMismatchError if vector dimensions are wrong.
     """
+    _validate_embedding_dimension(embeddings)
+
     client = get_qdrant_client()
     point_ids = [str(uuid.uuid4()) for _ in embeddings]
 
@@ -90,6 +109,17 @@ def search_vectors(
     if source_filter:
         query_filter = Filter(
             must=[FieldCondition(key="source", match=MatchValue(value=source_filter))]
+        )
+
+    # Validate query vector dimension
+    if len(query_vector) != settings.EMBEDDING_DIMENSION:
+        logger.error(
+            "Query vector dimension mismatch: got %d, expected %d",
+            len(query_vector), settings.EMBEDDING_DIMENSION,
+        )
+        raise EmbeddingDimensionMismatchError(
+            f"Query vector has dimension {len(query_vector)}, "
+            f"expected {settings.EMBEDDING_DIMENSION}"
         )
 
     results = client.search(

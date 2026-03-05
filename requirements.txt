@@ -18,6 +18,12 @@ torch>=2.0.0
 # ── Vector Store (Qdrant) ──────────────────
 qdrant-client>=1.9.0
 
+# ── BM25 Keyword Search ────────────────────
+rank-bm25>=0.2.2
+
+# ── Reranking (Cross-Encoder) ──────────────
+# (sentence-transformers already includes CrossEncoder)
+
 # ── Database (PostgreSQL async) ─────────────
 sqlalchemy[asyncio]>=2.0.0
 asyncpg>=0.29.0
