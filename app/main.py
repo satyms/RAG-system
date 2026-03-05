@@ -1,4 +1,4 @@
-"""RAG Engine — FastAPI Application Entry Point."""
+"""RAG Engine — FastAPI Application Entry Point (Phase 3: Production Hardened)."""
 
 from __future__ import annotations
 
@@ -16,6 +16,8 @@ from app.config import settings
 from app.utils.logging_config import setup_logging
 from app.api.routes import health, ingest, query
 from app.api.routes import evaluate as evaluate_route
+from app.api.routes import auth as auth_route
+from app.api.routes import documents as documents_route
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
@@ -59,6 +61,16 @@ def _background_warmup() -> None:
     except Exception as exc:
         logger.warning("BM25 index build failed (will retry after first ingest): %s", exc)
 
+    # Warm up Redis connection
+    try:
+        from app.core.cache import is_redis_available
+        if is_redis_available():
+            logger.info("Redis cache connected.")
+        else:
+            logger.warning("Redis unavailable — caching disabled.")
+    except Exception as exc:
+        logger.warning("Redis warm-up failed: %s", exc)
+
 
 # ── Lifespan (startup / shutdown) ───────────────────────────
 @asynccontextmanager
@@ -85,13 +97,19 @@ async def lifespan(app: FastAPI):
     # 4. Start background evaluation scheduler (runs periodically)
     try:
         from app.core.scheduler import start_scheduler
-        # Default: run evaluation every 24 hours — configurable via EVAL_INTERVAL_SECONDS env var
         import os
         interval = int(os.environ.get("EVAL_INTERVAL_SECONDS", 86400))
         start_scheduler(interval_seconds=interval)
         logger.info("Background evaluation scheduler started (interval=%ds).", interval)
     except Exception as exc:
         logger.warning("Background evaluation scheduler failed to start: %s", exc)
+
+    # 5. Initialize Prometheus metrics
+    try:
+        from app.middleware.metrics import setup_metrics
+        setup_metrics(settings.APP_NAME, settings.APP_VERSION)
+    except Exception as exc:
+        logger.warning("Prometheus metrics init failed: %s", exc)
 
     logger.info("RAG Engine started — accepting requests.")
     yield  # ── Application serves requests ───────────────────
@@ -118,7 +136,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# ── Middleware stack (order matters: outermost first) ────────
+
+# 1. CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -127,11 +147,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 2. Request-ID middleware
+from app.middleware.request_id import RequestIDMiddleware
+app.add_middleware(RequestIDMiddleware)
+
+# 3. Rate limiting
+from app.middleware.rate_limit import setup_rate_limiting
+setup_rate_limiting(app)
+
+# 4. Prometheus HTTP instrumentation
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator(
+        should_group_status_codes=True,
+        should_ignore_untemplated=True,
+        excluded_handlers=["/metrics", "/health", "/static"],
+    ).instrument(app).expose(app, endpoint="/metrics", tags=["Monitoring"])
+    logger.info("Prometheus /metrics endpoint enabled")
+except Exception as exc:
+    logger.warning("Prometheus instrumentator setup failed: %s", exc)
+
 # ── Register routers ────────────────────────────────────────
 app.include_router(health.router)
 app.include_router(ingest.router)
 app.include_router(query.router)
 app.include_router(evaluate_route.router)
+app.include_router(auth_route.router)
+app.include_router(documents_route.router)
 
 # ── Static files & SPA fallback ─────────────────────────────
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

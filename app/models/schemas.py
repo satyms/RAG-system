@@ -54,4 +54,5 @@ class HealthResponse(BaseModel):
     version: str = ""
     qdrant: str = ""
     database: str = ""
-
+    redis: str = ""
+    llm: str = ""

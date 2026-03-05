@@ -59,6 +59,26 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 50
     RATE_LIMIT: str = "30/minute"
 
+    # --- Phase 3: Security ---
+    API_KEY: str = ""                           # Static API key (empty = no auth)
+    JWT_SECRET_KEY: str = "change-me-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRY_MINUTES: int = 60
+
+    # --- Phase 3: Redis ---
+    REDIS_URL: str = "redis://localhost:6379/0"
+    CACHE_TTL_SECONDS: int = 3600               # 1 hour default
+    CACHE_ENABLED: bool = True
+
+    # --- Phase 3: Celery ---
+    CELERY_BROKER_URL: str = "redis://localhost:6379/1"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
+
+    # --- Phase 3: Rate Limiting ---
+    RATE_LIMIT_QUERY: str = "30/minute"
+    RATE_LIMIT_INGEST: str = "10/minute"
+    RATE_LIMIT_DEFAULT: str = "60/minute"
+
     # --- CORS ---
     CORS_ORIGINS: list[str] = ["*"]
 
