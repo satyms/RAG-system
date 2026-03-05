@@ -18,6 +18,11 @@ from app.api.routes import health, ingest, query
 from app.api.routes import evaluate as evaluate_route
 from app.api.routes import auth as auth_route
 from app.api.routes import documents as documents_route
+from app.api.routes import agent_query as agent_query_route
+from app.api.routes import feedback as feedback_route
+from app.api.routes import review as review_route
+from app.api.routes import adversarial as adversarial_route
+from app.api.routes import monitoring as monitoring_route
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
@@ -174,6 +179,13 @@ app.include_router(query.router)
 app.include_router(evaluate_route.router)
 app.include_router(auth_route.router)
 app.include_router(documents_route.router)
+
+# Phase 4 routes
+app.include_router(agent_query_route.router)
+app.include_router(feedback_route.router)
+app.include_router(review_route.router)
+app.include_router(adversarial_route.router)
+app.include_router(monitoring_route.router)
 
 # ── Static files & SPA fallback ─────────────────────────────
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")

@@ -32,7 +32,11 @@ async def query(
     db: AsyncSession = Depends(get_db),
     _auth: dict = Depends(require_auth),
 ):
-    """Hybrid retrieval → rerank → generate → evaluate → log."""
+    """Hybrid retrieval → rerank → generate → evaluate → log.
+
+    When ``use_agents=True`` the request is delegated to the multi-agent
+    orchestrator (Phase 4) and the result is returned directly.
+    """
 
     from app.middleware.metrics import (
         QUERY_COUNT, RETRIEVAL_LATENCY, GENERATION_LATENCY,
@@ -41,6 +45,11 @@ async def query(
     )
 
     total_start = time.perf_counter()
+
+    # ── Phase 4: optional agent delegation ───────────────────
+    if getattr(payload, "use_agents", False):
+        from app.api.routes.agent_query import agent_query as _agent_query
+        return await _agent_query(request, payload, db, _auth)
 
     # ── 0. Sanitize & check prompt injection ─────────────────
     clean_question = sanitize_query(payload.question)
@@ -264,6 +273,18 @@ async def query(
         set_cached_query(clean_question, payload.top_k, response_data.model_dump())
     except Exception:
         logger.debug("Failed to cache query response", exc_info=True)
+
+    # ── 8. Phase 4: record monitoring metrics ────────────────
+    try:
+        from app.core.monitoring import record_query_metrics
+        record_query_metrics(
+            confidence=confidence,
+            faithfulness=faithfulness_score,
+            latency_ms=total_ms,
+            retrieval_count=len(chunks),
+        )
+    except Exception:
+        logger.debug("Monitoring metrics recording skipped", exc_info=True)
 
     return response_data
 
