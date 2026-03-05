@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from app.config import settings
 from app.utils.logging_config import setup_logging
 from app.api.routes import health, ingest, query
+from app.api.routes import evaluate as evaluate_route
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def _background_warmup() -> None:
-    """Load embedding model + Qdrant collection in a thread (non-blocking)."""
+    """Load embedding model + reranker + BM25 index + Qdrant collection in a thread."""
     try:
         logger.info("Background warm-up: loading embedding model …")
         from app.core.embeddings import get_embedding_model
@@ -35,12 +36,28 @@ def _background_warmup() -> None:
         logger.warning("Embedding warm-up failed (will retry on first request): %s", exc)
 
     try:
+        logger.info("Background warm-up: loading reranker …")
+        from app.core.reranker import get_reranker
+        get_reranker()
+        logger.info("Reranker ready.")
+    except Exception as exc:
+        logger.warning("Reranker warm-up failed: %s", exc)
+
+    try:
         logger.info("Background warm-up: connecting to Qdrant …")
         from app.core.vector_store import ensure_collection
         ensure_collection()
         logger.info("Qdrant collection ready.")
     except Exception as exc:
         logger.warning("Qdrant warm-up failed (ensure Qdrant Docker container is running): %s", exc)
+
+    try:
+        logger.info("Background warm-up: building BM25 index …")
+        from app.core.bm25_search import build_bm25_index
+        count = build_bm25_index()
+        logger.info("BM25 index ready (%d documents).", count)
+    except Exception as exc:
+        logger.warning("BM25 index build failed (will retry after first ingest): %s", exc)
 
 
 # ── Lifespan (startup / shutdown) ───────────────────────────
@@ -65,10 +82,26 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_event_loop()
     loop.run_in_executor(None, _background_warmup)
 
+    # 4. Start background evaluation scheduler (runs periodically)
+    try:
+        from app.core.scheduler import start_scheduler
+        # Default: run evaluation every 24 hours — configurable via EVAL_INTERVAL_SECONDS env var
+        import os
+        interval = int(os.environ.get("EVAL_INTERVAL_SECONDS", 86400))
+        start_scheduler(interval_seconds=interval)
+        logger.info("Background evaluation scheduler started (interval=%ds).", interval)
+    except Exception as exc:
+        logger.warning("Background evaluation scheduler failed to start: %s", exc)
+
     logger.info("RAG Engine started — accepting requests.")
     yield  # ── Application serves requests ───────────────────
 
     # ── Shutdown ─────────────────────────────────────────────
+    try:
+        from app.core.scheduler import stop_scheduler
+        stop_scheduler()
+    except Exception:
+        pass
     try:
         from app.db.session import close_db
         await close_db()
@@ -98,6 +131,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(ingest.router)
 app.include_router(query.router)
+app.include_router(evaluate_route.router)
 
 # ── Static files & SPA fallback ─────────────────────────────
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
