@@ -68,3 +68,16 @@ class QueryLog(Base):
     token_usage = Column(JSON, default=dict)  # prompt_tokens, completion_tokens
     confidence_score = Column(Float, nullable=True)  # avg similarity
     timestamp = Column(DateTime(timezone=True), default=_utcnow)
+
+    # ── Phase 2: Hybrid + Reranking metadata ─────────────────
+    dense_scores = Column(JSON, default=list)
+    bm25_scores = Column(JSON, default=list)
+    reranker_scores = Column(JSON, default=list)
+    hybrid_scores = Column(JSON, default=list)
+    latency_breakdown = Column(JSON, default=dict)  # dense_ms, bm25_ms, rerank_ms, llm_ms
+    pre_rerank_count = Column(Integer, nullable=True)
+    post_rerank_count = Column(Integer, nullable=True)
+    faithfulness_score = Column(Float, nullable=True)
+    is_grounded = Column(String(16), nullable=True)  # yes | no | partial | unknown
+    low_confidence = Column(String(8), nullable=True)  # true | false
+    fallback_reason = Column(Text, nullable=True)  # reason for degraded retrieval

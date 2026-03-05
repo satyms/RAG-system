@@ -1,0 +1,42 @@
+[
+  {
+    "query": "What is this document about?",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "Explain the main concepts covered in the uploaded material.",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "What are the key findings or conclusions?",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "Summarize the introduction section.",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "What methodology was used?",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "List the references or sources cited.",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "What are the limitations discussed?",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "What recommendations are provided?",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "Who are the authors or contributors?",
+    "relevant_chunk_ids": []
+  },
+  {
+    "query": "What data was used in the analysis?",
+    "relevant_chunk_ids": []
+  }
+]
