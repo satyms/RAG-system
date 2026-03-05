@@ -1,4 +1,4 @@
-"""Health-check endpoint — verifies app, Qdrant, and Postgres."""
+"""Health-check endpoint — verifies app, Qdrant, Postgres, Redis, and LLM."""
 
 import logging
 
@@ -13,10 +13,12 @@ router = APIRouter(prefix="/api", tags=["Health"])
 
 @router.get("/health", response_model=HealthResponse)
 async def health():
-    """Deep health check — tests Qdrant and Postgres connectivity."""
+    """Deep health check — tests Qdrant, Postgres, Redis, and LLM connectivity."""
 
     qdrant_status = "unknown"
     db_status = "unknown"
+    redis_status = "unknown"
+    llm_status = "unknown"
 
     # Check Qdrant
     try:
@@ -39,7 +41,31 @@ async def health():
         db_status = f"error: {exc}"
         logger.error("Postgres health check failed: %s", exc)
 
-    overall = "ok" if qdrant_status == "ok" and db_status == "ok" else "degraded"
+    # Check Redis
+    try:
+        from app.core.cache import is_redis_available
+        if is_redis_available():
+            redis_status = "ok"
+        else:
+            redis_status = "unavailable"
+    except Exception as exc:
+        redis_status = f"error: {exc}"
+        logger.error("Redis health check failed: %s", exc)
+
+    # Check LLM (lightweight — just verify API key is set)
+    try:
+        if settings.GOOGLE_API_KEY:
+            llm_status = "configured"
+        else:
+            llm_status = "not configured"
+    except Exception as exc:
+        llm_status = f"error: {exc}"
+
+    overall = "ok"
+    if qdrant_status != "ok" or db_status != "ok":
+        overall = "degraded"
+    if qdrant_status.startswith("error") and db_status.startswith("error"):
+        overall = "unhealthy"
 
     return HealthResponse(
         status=overall,
@@ -47,5 +73,7 @@ async def health():
         version=settings.APP_VERSION,
         qdrant=qdrant_status,
         database=db_status,
+        redis=redis_status,
+        llm=llm_status,
     )
 

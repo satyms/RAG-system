@@ -1,4 +1,4 @@
-"""Structured JSON logging configuration."""
+"""Structured JSON logging configuration with request-ID support."""
 
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 
 
 class JSONFormatter(logging.Formatter):
-    """Emit log records as JSON lines."""
+    """Emit log records as JSON lines with optional extra fields."""
 
     def format(self, record: logging.LogRecord) -> str:
-        log_entry = {
+        log_entry: dict = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
@@ -21,9 +21,32 @@ class JSONFormatter(logging.Formatter):
             "function": record.funcName,
             "line": record.lineno,
         }
+
+        # Inject request_id from context variable if available
+        try:
+            from app.middleware.request_id import request_id_ctx
+            rid = request_id_ctx.get("")
+            if rid:
+                log_entry["request_id"] = rid
+        except Exception:
+            pass
+
+        # Merge extra keys set via logger.info("msg", extra={...})
+        _STANDARD = {
+            "name", "msg", "args", "created", "relativeCreated", "exc_info",
+            "exc_text", "stack_info", "lineno", "funcName", "pathname",
+            "filename", "module", "levelno", "levelname", "message",
+            "msecs", "thread", "threadName", "process", "processName",
+            "taskName",
+        }
+        for key, val in record.__dict__.items():
+            if key not in _STANDARD and key not in log_entry:
+                log_entry[key] = val
+
         if record.exc_info and record.exc_info[1]:
             log_entry["exception"] = self.formatException(record.exc_info)
-        return json.dumps(log_entry)
+
+        return json.dumps(log_entry, default=str)
 
 
 def setup_logging(debug: bool = False) -> None:

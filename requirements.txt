@@ -33,6 +33,22 @@ pypdf>=4.0.0
 python-docx>=1.0.0
 unstructured>=0.15.0
 
+# ── Phase 3: Background Processing ─────────
+celery[redis]>=5.3.0
+redis>=5.0.0
+
+# ── Phase 3: Observability ──────────────────
+prometheus-client>=0.20.0
+prometheus-fastapi-instrumentator>=7.0.0
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-instrumentation-fastapi>=0.41b0
+
+# ── Phase 3: Security ──────────────────────
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
+slowapi>=0.1.9
+
 # ── Testing ─────────────────────────────────
 pytest>=8.0.0
 pytest-asyncio>=0.23.0

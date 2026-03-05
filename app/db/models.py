@@ -14,6 +14,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     JSON,
+    Boolean,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
@@ -26,7 +27,7 @@ def _utcnow() -> datetime:
 
 
 class Document(Base):
-    """Uploaded document record."""
+    """Uploaded document record with versioning support."""
 
     __tablename__ = "documents"
 
@@ -35,6 +36,11 @@ class Document(Base):
     file_hash = Column(String(128), nullable=True)
     upload_timestamp = Column(DateTime(timezone=True), default=_utcnow)
     status = Column(String(32), default="uploaded")  # uploaded | processing | indexed | failed
+    # Phase 3: Versioning
+    version = Column(Integer, default=1, nullable=False)
+    is_latest = Column(Boolean, default=True, nullable=False)
+    previous_version_id = Column(UUID(as_uuid=True), nullable=True)
+    reindexed_at = Column(DateTime(timezone=True), nullable=True)
 
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
 
