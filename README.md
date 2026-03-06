@@ -84,15 +84,14 @@ POST /api/evaluate/ground-truth  → Upload evaluation dataset
 
 | Category | Technology |
 |---|---|
-| **Backend** | Python 3.13, FastAPI, Uvicorn |
-| **Embeddings** | SentenceTransformers — BGE-base-en-v1.5 (768d) |
-| **Vector Store** | Qdrant (Docker, cosine distance) |
-| **Keyword Search** | BM25 via rank-bm25 (in-memory) |
-| **Reranker** | Cross-Encoder ms-marco-MiniLM-L-6-v2 |
-| **Relational DB** | PostgreSQL 16 (async via SQLAlchemy + asyncpg) |
-| **LLM** | Gemini 2.0 Flash via LangChain |
-| **Evaluation** | LLM-as-Judge faithfulness, Precision@K, Recall@K, MRR |
-| **Containerisation** | Docker + docker-compose |
+| **Backend** | Python 3.10+, FastAPI |
+| **Orchestration** | LangChain, LangGraph |
+| **Embeddings** | SentenceTransformers (BGE / MiniLM) |
+| **Vector Store** | FAISS / ChromaDB |
+| **Relational DB** | SQLite / PostgreSQL |
+| **LLM** | Ollama (`llama3.2`) by default, OpenAI-compatible APIs, optional Gemini |
+| **Evaluation** | LLM-as-Judge, RAGAS metrics |
+| **Multi-Agent** | LangGraph agent graphs |
 
 ---
 
@@ -111,12 +110,17 @@ python -m venv rag
 # Install dependencies
 pip install -r requirements.txt
 
+# Pull the default Ollama model
+ollama pull llama3.2
+
 # Start the server
 uvicorn app.main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`
 API docs at `http://localhost:8000/docs`
+
+By default, the app uses Ollama at `http://localhost:11434` with the `llama3.2` model.
 
 ---
 

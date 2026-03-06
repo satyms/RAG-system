@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # --- Retrieval ---
     TOP_K: int = 5
 
+    # --- LLM / Generation ---
+    LLM_PROVIDER: str = "ollama"  # "ollama" | "openai" | "google_genai"
     # --- Hybrid Retrieval (Phase 2) ---
     TOP_K_DENSE: int = 20
     TOP_K_BM25: int = 20
