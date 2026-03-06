@@ -77,7 +77,7 @@ GET  /health    → System health check
 | **Embeddings** | SentenceTransformers (BGE / MiniLM) |
 | **Vector Store** | FAISS / ChromaDB |
 | **Relational DB** | SQLite / PostgreSQL |
-| **LLM** | Gemini, OpenAI-compatible APIs, Local (Mistral / LLaMA / Gemma) |
+| **LLM** | Ollama (`llama3.2`) by default, OpenAI-compatible APIs, optional Gemini |
 | **Evaluation** | LLM-as-Judge, RAGAS metrics |
 | **Multi-Agent** | LangGraph agent graphs |
 
@@ -98,12 +98,17 @@ python -m venv rag
 # Install dependencies
 pip install -r requirements.txt
 
+# Pull the default Ollama model
+ollama pull llama3.2
+
 # Start the server
 uvicorn app.main:app --reload
 ```
 
 The API will be available at `http://localhost:8000`
 API docs at `http://localhost:8000/docs`
+
+By default, the app uses Ollama at `http://localhost:11434` with the `llama3.2` model.
 
 ---
 

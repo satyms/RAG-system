@@ -28,19 +28,19 @@ class Settings(BaseSettings):
     TOP_K: int = 5
 
     # --- LLM / Generation ---
-    LLM_PROVIDER: str = "google_genai"  # "openai" | "google_genai" | "ollama"
+    LLM_PROVIDER: str = "ollama"  # "ollama" | "openai" | "google_genai"
 
     # OpenAI-compatible
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-3.5-turbo"
 
-    # Google Generative AI (Gemini)
+    # Google Generative AI (optional)
     GOOGLE_API_KEY: str = ""
     GOOGLE_MODEL: str = "gemini-2.0-flash"
 
     # Ollama (local)
     OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "mistral"
+    OLLAMA_MODEL: str = "llama3.2"
 
     # --- CORS ---
     CORS_ORIGINS: list[str] = ["*"]

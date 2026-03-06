@@ -21,10 +21,10 @@ faiss-cpu>=1.8.0
 pypdf>=4.0.0
 unstructured>=0.15.0
 
-# ── LLM providers (install the one you use) ─
-# OpenAI
-langchain-openai>=0.2.0
-# Google Gemini
-langchain-google-genai>=2.0.0
+# ── LLM providers (Ollama is the default) ─
 # Ollama (local)
 langchain-ollama>=0.2.0
+# OpenAI
+langchain-openai>=0.2.0
+# Google Gemini (optional)
+langchain-google-genai>=2.0.0
