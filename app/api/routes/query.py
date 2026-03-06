@@ -95,20 +95,11 @@ async def query(
         ret_meta = retrieval_result["metadata"]
         RETRIEVAL_LATENCY.observe(time.perf_counter() - t_ret)
     except Exception as exc:
-        logger.exception("Retrieval failed")
-        QUERY_COUNT.labels(status="error").inc()
-
-        # Fallback: try to return cached answer if available
-        try:
-            from app.core.cache import get_cached_query
-            fallback = get_cached_query(clean_question, payload.top_k)
-            if fallback:
-                logger.info("Serving stale cache after retrieval failure")
-                return QueryResponse(**fallback)
-        except Exception:
-            pass
-
-        raise HTTPException(status_code=500, detail=f"Retrieval error: {exc}")
+        logger.warning("Retrieval failed (will proceed with LLM only): %s", exc)
+        QUERY_COUNT.labels(status="retrieval_fallback").inc()
+        chunks = []
+        ret_meta = {"latency": {}, "dense_count": 0, "bm25_count": 0,
+                    "pre_rerank_count": 0, "post_rerank_count": 0}
     finally:
         # Restore original weight if overridden
         if payload.hybrid_weight is not None:
@@ -199,35 +190,38 @@ async def query(
     latency_breakdown["llm_ms"] = result.get("latency_ms", 0)
     latency_breakdown["total_ms"] = total_ms
 
-    try:
-        log_entry = QueryLog(
-            query_text=clean_question,
-            retrieved_chunks=[
-                {"id": c.get("id"), "source": c.get("source"), "score": c.get("score")}
-                for c in chunks
-            ],
-            response=result["answer"],
-            similarity_scores=dense_scores,
-            latency_ms=total_ms,
-            token_usage=result.get("token_usage", {}),
-            confidence_score=confidence,
-            # Phase 2 fields
-            dense_scores=ret_meta.get("dense_scores", []),
-            bm25_scores=ret_meta.get("bm25_scores", []),
-            reranker_scores=ret_meta.get("reranker_scores", []),
-            hybrid_scores=ret_meta.get("hybrid_scores", []),
-            latency_breakdown=latency_breakdown,
-            pre_rerank_count=ret_meta.get("pre_rerank_count"),
-            post_rerank_count=ret_meta.get("post_rerank_count"),
-            faithfulness_score=faithfulness_score,
-            is_grounded=is_grounded,
-            low_confidence="true" if low_confidence else "false",
-            fallback_reason=ret_meta.get("fallback_reason"),
-        )
-        db.add(log_entry)
-        await db.commit()
-    except Exception:
-        logger.exception("Failed to log query — non-fatal, continuing")
+    if db is not None:
+        try:
+            log_entry = QueryLog(
+                query_text=clean_question,
+                retrieved_chunks=[
+                    {"id": c.get("id"), "source": c.get("source"), "score": c.get("score")}
+                    for c in chunks
+                ],
+                response=result["answer"],
+                similarity_scores=dense_scores,
+                latency_ms=total_ms,
+                token_usage=result.get("token_usage", {}),
+                confidence_score=confidence,
+                # Phase 2 fields
+                dense_scores=ret_meta.get("dense_scores", []),
+                bm25_scores=ret_meta.get("bm25_scores", []),
+                reranker_scores=ret_meta.get("reranker_scores", []),
+                hybrid_scores=ret_meta.get("hybrid_scores", []),
+                latency_breakdown=latency_breakdown,
+                pre_rerank_count=ret_meta.get("pre_rerank_count"),
+                post_rerank_count=ret_meta.get("post_rerank_count"),
+                faithfulness_score=faithfulness_score,
+                is_grounded=is_grounded,
+                low_confidence="true" if low_confidence else "false",
+                fallback_reason=ret_meta.get("fallback_reason"),
+            )
+            db.add(log_entry)
+            await db.commit()
+        except Exception:
+            logger.exception("Failed to log query — non-fatal, continuing")
+    else:
+        logger.debug("Database unavailable — skipping query log")
 
     if low_confidence:
         QUERY_COUNT.labels(status="low_confidence").inc()

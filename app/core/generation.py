@@ -1,4 +1,4 @@
-"""LLM generation — Gemini via Google GenAI, with latency & token tracking."""
+"""LLM generation — Ollama (llama3.2), with latency & token tracking."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import logging
 import time
 from functools import lru_cache
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.config import settings
@@ -34,14 +34,11 @@ _PROMPT = ChatPromptTemplate.from_messages([
 
 # ── LLM singleton ───────────────────────────────────────────
 @lru_cache(maxsize=1)
-def _get_llm() -> ChatGoogleGenerativeAI:
-    """Instantiate Gemini LLM."""
-    if not settings.GOOGLE_API_KEY:
-        raise RuntimeError("GOOGLE_API_KEY not set — add it to .env")
-
-    return ChatGoogleGenerativeAI(
-        model=settings.GOOGLE_MODEL,
-        google_api_key=settings.GOOGLE_API_KEY,
+def _get_llm() -> ChatOllama:
+    """Instantiate Ollama LLM."""
+    return ChatOllama(
+        model=settings.OLLAMA_MODEL,
+        base_url=settings.OLLAMA_BASE_URL,
         temperature=0.3,
     )
 
@@ -53,7 +50,7 @@ def generate_answer(
     context_chunks: list[dict],
 ) -> dict:
     """
-    Build prompt from retrieved chunks, call Gemini, return result dict.
+    Build prompt from retrieved chunks, call Ollama LLM, return result dict.
 
     Returns:
         {

@@ -137,7 +137,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Production RAG API powered by Qdrant + Gemini",
+    description="Production RAG API powered by Qdrant + Ollama (llama3.2)",
     lifespan=lifespan,
 )
 

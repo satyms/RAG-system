@@ -40,12 +40,10 @@ class Settings(BaseSettings):
     RERANKER_TOP_K: int = 5             # final chunks after reranking
     RERANKER_ENABLED: bool = True
 
-    # --- LLM / Generation ---
-    LLM_PROVIDER: str = "google_genai"
-
-    # Google Generative AI (Gemini)
-    GOOGLE_API_KEY: str = ""
-    GOOGLE_MODEL: str = "gemini-2.0-flash"
+    # --- LLM / Generation (Ollama) ---
+    LLM_PROVIDER: str = "ollama"
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "llama3.2"
 
     # --- PostgreSQL ---
     DATABASE_URL: str = "postgresql+asyncpg://rag:rag_password@localhost:5432/rag_db"

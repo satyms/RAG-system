@@ -98,11 +98,8 @@ def _decompose_query_heuristic(query: str) -> list[str]:
 def _decompose_query_llm(query: str) -> list[str]:
     """Use LLM to decompose a query into sub-tasks."""
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_ollama import ChatOllama
         from langchain_core.prompts import ChatPromptTemplate
-
-        if not settings.GOOGLE_API_KEY:
-            return _decompose_query_heuristic(query)
 
         prompt = ChatPromptTemplate.from_messages([
             ("system",
@@ -112,9 +109,9 @@ def _decompose_query_llm(query: str) -> list[str]:
             ("human", "{query}"),
         ])
 
-        llm = ChatGoogleGenerativeAI(
-            model=settings.GOOGLE_MODEL,
-            google_api_key=settings.GOOGLE_API_KEY,
+        llm = ChatOllama(
+            model=settings.OLLAMA_MODEL,
+            base_url=settings.OLLAMA_BASE_URL,
             temperature=0.0,
         )
 
@@ -160,7 +157,7 @@ class PlannerAgent(BaseAgent):
 
         # 4. Decompose if complex/multi-step
         if ctx.query_type in ("complex", "multi_step"):
-            if ctx.complexity == "high" and settings.GOOGLE_API_KEY:
+            if ctx.complexity == "high":
                 ctx.sub_tasks = _decompose_query_llm(ctx.query)
             else:
                 ctx.sub_tasks = _decompose_query_heuristic(ctx.query)
