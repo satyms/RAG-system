@@ -97,26 +97,29 @@ async def agent_query(
         agent_meta["human_review_reason"] = review_reason
 
     # Log to Postgres
-    try:
-        log_entry = QueryLog(
-            query_text=payload.question,
-            retrieved_chunks=[
-                {"source": s.get("source"), "score": s.get("score")}
-                for s in result.get("sources", [])
-            ],
-            response=result["answer"],
-            similarity_scores=[s.get("score", 0) for s in result.get("sources", [])],
-            latency_ms=total_ms,
-            token_usage=result.get("token_usage", {}),
-            confidence_score=result.get("confidence_score"),
-            faithfulness_score=result.get("faithfulness_score"),
-            is_grounded=result.get("is_grounded"),
-            low_confidence="true" if result.get("low_confidence") else "false",
-        )
-        db.add(log_entry)
-        await db.commit()
-    except Exception:
-        logger.exception("Failed to log query — non-fatal")
+    if db is not None:
+        try:
+            log_entry = QueryLog(
+                query_text=payload.question,
+                retrieved_chunks=[
+                    {"source": s.get("source"), "score": s.get("score")}
+                    for s in result.get("sources", [])
+                ],
+                response=result["answer"],
+                similarity_scores=[s.get("score", 0) for s in result.get("sources", [])],
+                latency_ms=total_ms,
+                token_usage=result.get("token_usage", {}),
+                confidence_score=result.get("confidence_score"),
+                faithfulness_score=result.get("faithfulness_score"),
+                is_grounded=result.get("is_grounded"),
+                low_confidence="true" if result.get("low_confidence") else "false",
+            )
+            db.add(log_entry)
+            await db.commit()
+        except Exception:
+            logger.exception("Failed to log query — non-fatal")
+    else:
+        logger.debug("Database unavailable — skipping query log")
 
     if QUERY_COUNT:
         status = "low_confidence" if result.get("low_confidence") else "success"

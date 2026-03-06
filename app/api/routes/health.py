@@ -52,12 +52,14 @@ async def health():
         redis_status = f"error: {exc}"
         logger.error("Redis health check failed: %s", exc)
 
-    # Check LLM (lightweight — just verify API key is set)
+    # Check LLM (lightweight — verify Ollama is reachable)
     try:
-        if settings.GOOGLE_API_KEY:
-            llm_status = "configured"
+        import httpx
+        resp = httpx.get(f"{settings.OLLAMA_BASE_URL}/api/tags", timeout=3)
+        if resp.status_code == 200:
+            llm_status = f"ok (ollama @ {settings.OLLAMA_BASE_URL}, model={settings.OLLAMA_MODEL})"
         else:
-            llm_status = "not configured"
+            llm_status = f"error: Ollama returned {resp.status_code}"
     except Exception as exc:
         llm_status = f"error: {exc}"
 

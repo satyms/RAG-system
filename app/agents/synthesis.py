@@ -7,7 +7,7 @@ import time
 import json
 from functools import lru_cache
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.agents.base import BaseAgent, AgentContext, AgentMessage, MessageRole
@@ -71,12 +71,10 @@ _MULTI_STEP_PROMPT = ChatPromptTemplate.from_messages([
 
 
 @lru_cache(maxsize=1)
-def _get_llm() -> ChatGoogleGenerativeAI:
-    if not settings.GOOGLE_API_KEY:
-        raise RuntimeError("GOOGLE_API_KEY not set — add it to .env")
-    return ChatGoogleGenerativeAI(
-        model=settings.GOOGLE_MODEL,
-        google_api_key=settings.GOOGLE_API_KEY,
+def _get_llm() -> ChatOllama:
+    return ChatOllama(
+        model=settings.OLLAMA_MODEL,
+        base_url=settings.OLLAMA_BASE_URL,
         temperature=0.3,
     )
 
@@ -155,7 +153,7 @@ class SynthesisAgent(BaseAgent):
         except RuntimeError as exc:
             logger.error("LLM config error: %s", exc)
             ctx.errors.append(str(exc))
-            answer = "⚠️ LLM is not configured. Please set GOOGLE_API_KEY in your environment."
+            answer = "⚠️ LLM is not configured. Please ensure Ollama is running at " + settings.OLLAMA_BASE_URL
         except Exception as exc:
             logger.exception("LLM generation failed")
             ctx.errors.append(f"Generation failed: {exc}")

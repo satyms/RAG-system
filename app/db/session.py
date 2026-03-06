@@ -32,10 +32,19 @@ class Base(DeclarativeBase):
     pass
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI dependency — yields an async session, auto-closes."""
-    async with async_session() as session:
-        yield session
+async def get_db() -> AsyncGenerator[AsyncSession | None, None]:
+    """FastAPI dependency — yields an async session, auto-closes.
+
+    Yields ``None`` when the database is unreachable so that endpoints
+    can gracefully degrade instead of returning a 500.
+    """
+    try:
+        async with async_session() as session:
+            yield session
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Database unavailable: %s", exc)
+        yield None
 
 
 async def init_db() -> None:

@@ -6,7 +6,7 @@ import logging
 import time
 from functools import lru_cache
 
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 
 from app.config import settings
@@ -39,13 +39,11 @@ _JUDGE_PROMPT = ChatPromptTemplate.from_messages([
 
 
 @lru_cache(maxsize=1)
-def _get_judge_llm() -> ChatGoogleGenerativeAI:
-    """Lightweight LLM for evaluation — same Gemini model but low temperature."""
-    if not settings.GOOGLE_API_KEY:
-        raise RuntimeError("GOOGLE_API_KEY not set")
-    return ChatGoogleGenerativeAI(
-        model=settings.GOOGLE_MODEL,
-        google_api_key=settings.GOOGLE_API_KEY,
+def _get_judge_llm() -> ChatOllama:
+    """Lightweight LLM for evaluation — Ollama with low temperature."""
+    return ChatOllama(
+        model=settings.OLLAMA_MODEL,
+        base_url=settings.OLLAMA_BASE_URL,
         temperature=0.0,
     )
 
