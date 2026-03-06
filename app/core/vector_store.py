@@ -1,41 +1,178 @@
-"""FAISS vector store — singleton via lru_cache."""
+"""Qdrant vector store service — singleton client."""
 
 from __future__ import annotations
 
 import logging
+import uuid
 from functools import lru_cache
-from pathlib import Path
 
-from langchain_community.vectorstores import FAISS
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    Distance,
+    VectorParams,
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue,
+)
 
 from app.config import settings
-from app.core.embeddings import get_embedding_model
 
 logger = logging.getLogger(__name__)
 
-_INDEX_PATH: Path = settings.VECTOR_STORE_DIR / "faiss_index"
-
 
 @lru_cache(maxsize=1)
-def get_vector_store() -> FAISS:
-    """Load or create a FAISS vector store."""
-    embeddings = get_embedding_model()
+def get_qdrant_client() -> QdrantClient:
+    """Return a cached Qdrant client."""
+    client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
+    logger.info("Connected to Qdrant at %s:%s", settings.QDRANT_HOST, settings.QDRANT_PORT)
+    return client
 
-    if (_INDEX_PATH / "index.faiss").exists():
-        logger.info("Loading existing FAISS index from %s", _INDEX_PATH)
-        store = FAISS.load_local(
-            str(_INDEX_PATH), embeddings, allow_dangerous_deserialization=True
+
+def ensure_collection() -> None:
+    """Create the Qdrant collection if it does not exist."""
+    client = get_qdrant_client()
+    collections = [c.name for c in client.get_collections().collections]
+
+    if settings.QDRANT_COLLECTION not in collections:
+        client.create_collection(
+            collection_name=settings.QDRANT_COLLECTION,
+            vectors_config=VectorParams(
+                size=settings.EMBEDDING_DIMENSION,
+                distance=Distance.COSINE,
+            ),
         )
+        logger.info("Created Qdrant collection: %s", settings.QDRANT_COLLECTION)
     else:
-        logger.info("Creating new (empty) FAISS index.")
-        # Bootstrap with a dummy doc so the index file exists
-        store = FAISS.from_texts(["__init__"], embeddings)
-        store.save_local(str(_INDEX_PATH))
-
-    return store
+        logger.info("Qdrant collection already exists: %s", settings.QDRANT_COLLECTION)
 
 
-def persist_vector_store(store: FAISS) -> None:
-    """Save the vector store to disk."""
-    store.save_local(str(_INDEX_PATH))
-    logger.info("Vector store persisted to %s", _INDEX_PATH)
+class EmbeddingDimensionMismatchError(Exception):
+    """Raised when embedding dimensions don't match the expected collection config."""
+    pass
+
+
+def _validate_embedding_dimension(vectors: list[list[float]]) -> None:
+    """Check that all vectors match the configured embedding dimension."""
+    expected = settings.EMBEDDING_DIMENSION
+    for i, vec in enumerate(vectors):
+        if len(vec) != expected:
+            raise EmbeddingDimensionMismatchError(
+                f"Vector {i} has dimension {len(vec)}, expected {expected}. "
+                f"Check EMBEDDING_DIMENSION setting matches your model."
+            )
+
+
+def upsert_embeddings(
+    embeddings: list[list[float]],
+    payloads: list[dict],
+) -> list[str]:
+    """
+    Upsert embedding vectors with metadata payloads into Qdrant.
+
+    Returns list of point IDs (UUID strings).
+    Raises EmbeddingDimensionMismatchError if vector dimensions are wrong.
+    """
+    _validate_embedding_dimension(embeddings)
+
+    client = get_qdrant_client()
+    point_ids = [str(uuid.uuid4()) for _ in embeddings]
+
+    points = [
+        PointStruct(id=pid, vector=vec, payload=payload)
+        for pid, vec, payload in zip(point_ids, embeddings, payloads)
+    ]
+
+    # Batch in groups of 100
+    batch_size = 100
+    for i in range(0, len(points), batch_size):
+        batch = points[i : i + batch_size]
+        client.upsert(collection_name=settings.QDRANT_COLLECTION, points=batch)
+
+    logger.info("Upserted %d vectors into Qdrant", len(points))
+    return point_ids
+
+
+def search_vectors(
+    query_vector: list[float],
+    top_k: int = 5,
+    source_filter: str | None = None,
+) -> list[dict]:
+    """
+    Search Qdrant for the top-k most similar vectors.
+
+    Returns list of dicts with: id, score, content, source, metadata.
+    """
+    client = get_qdrant_client()
+
+    query_filter = None
+    if source_filter:
+        query_filter = Filter(
+            must=[FieldCondition(key="source", match=MatchValue(value=source_filter))]
+        )
+
+    # Validate query vector dimension
+    if len(query_vector) != settings.EMBEDDING_DIMENSION:
+        logger.error(
+            "Query vector dimension mismatch: got %d, expected %d",
+            len(query_vector), settings.EMBEDDING_DIMENSION,
+        )
+        raise EmbeddingDimensionMismatchError(
+            f"Query vector has dimension {len(query_vector)}, "
+            f"expected {settings.EMBEDDING_DIMENSION}"
+        )
+
+    results = client.search(
+        collection_name=settings.QDRANT_COLLECTION,
+        query_vector=query_vector,
+        limit=top_k,
+        query_filter=query_filter,
+        with_payload=True,
+    )
+
+    hits = []
+    for r in results:
+        hits.append({
+            "id": str(r.id),
+            "score": round(float(r.score), 4),
+            "content": r.payload.get("content", ""),
+            "source": r.payload.get("source", ""),
+            "chunk_index": r.payload.get("chunk_index"),
+            "page_number": r.payload.get("page_number"),
+            "metadata": r.payload,
+        })
+
+    logger.info("Qdrant search returned %d results (top_k=%d)", len(hits), top_k)
+    return hits
+
+
+def delete_document_vectors(source: str) -> int:
+    """Delete all vectors for a given source filename. Returns count deleted."""
+    client = get_qdrant_client()
+
+    # Use scroll to find all points with this source
+    points_to_delete = []
+    offset = None
+    while True:
+        records, next_offset = client.scroll(
+            collection_name=settings.QDRANT_COLLECTION,
+            scroll_filter=Filter(
+                must=[FieldCondition(key="source", match=MatchValue(value=source))]
+            ),
+            limit=100,
+            offset=offset,
+        )
+        points_to_delete.extend([r.id for r in records])
+        if next_offset is None:
+            break
+        offset = next_offset
+
+    if points_to_delete:
+        client.delete(
+            collection_name=settings.QDRANT_COLLECTION,
+            points_selector=points_to_delete,
+        )
+
+    logger.info("Deleted %d vectors for source=%s", len(points_to_delete), source)
+    return len(points_to_delete)
+

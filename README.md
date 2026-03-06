@@ -26,21 +26,30 @@ This is an **independent project** built to serve as a robust, end-to-end intell
 flowchart TD
     DS["Data Sources\nDocuments · Code · Spreadsheets · Images"]
     DP["Data Processing\nDocument Parsing · Structure Analysis\nChunking · Metadata Creation"]
-    DB["Database Layer\nVector Store · Relational Database"]
-    MAS["Multi-Agent System\nAgent 1 · Agent 2 · Agent N"]
-    RE["Reasoning Engine\nPlanning · Tool Execution · Routing"]
-    EVAL["Evaluation\nLLM Judges · Precision/Recall · Latency · Cost"]
-    ST["Stress Testing\nPrompt Injection · Biased Opinion · Information Evasion"]
+    DB["Database Layer\nQdrant Vector DB · PostgreSQL"]
+    
+    subgraph Retrieval["Hybrid Retrieval Pipeline"]
+        DENSE["Dense Search\n(Qdrant cosine)"]
+        BM25["BM25 Keyword\nSearch"]
+        MERGE["Weighted Merge\n(alpha blending)"]
+        RERANK["Cross-Encoder\nReranker"]
+    end
+    
+    LLM["LLM Generation\nGemini 2.0 Flash"]
+    EVAL["Evaluation\nFaithfulness · P@K · R@K · MRR"]
     HV["Human Validation\nGatekeeper · Auditor · Strategist"]
 
     DS --> DP
     DP --> DB
-    DB --> MAS
-    MAS --> RE
-    RE --> EVAL
-    EVAL --> ST
-    ST --> HV
-    HV -->|Feedback Loop| RE
+    DB --> DENSE
+    DB --> BM25
+    DENSE --> MERGE
+    BM25 --> MERGE
+    MERGE --> RERANK
+    RERANK --> LLM
+    LLM --> EVAL
+    EVAL --> HV
+    HV -->|Feedback Loop| EVAL
 ```
 
 ### Layer Breakdown
@@ -49,11 +58,11 @@ flowchart TD
 |---|---|---|
 | **Data Sources** | Documents, Code, Spreadsheets, Images | Raw input ingestion |
 | **Data Processing** | Parser, Structure Analyzer, Chunker, Metadata Creator | Transform raw data into structured, retrievable units |
-| **Database Layer** | Vector Store (FAISS/Chroma), Relational DB | Persist embeddings and structured metadata |
-| **Multi-Agent System** | Specialized task agents | Parallel or sequential task execution |
-| **Reasoning Engine** | Planner, Tool Executor, Router | Decide how to answer — decompose, retrieve, act |
-| **Evaluation** | LLM-as-Judge, Precision/Recall, Latency/Cost metrics | Measure answer quality and system performance |
-| **Stress Testing** | Prompt Injection, Biased Opinion, Information Evasion | Adversarial robustness testing |
+| **Database Layer** | Qdrant (vectors), PostgreSQL (metadata + logs) | Persist embeddings and structured metadata |
+| **Hybrid Retrieval** | Dense (Qdrant) + BM25 keyword search | Dual-signal retrieval with weighted merge |
+| **Reranking** | Cross-encoder (ms-marco-MiniLM-L-6-v2) | Reorder candidates by query-passage relevance |
+| **Generation** | Gemini 2.0 Flash via LangChain | Grounded answer generation from context |
+| **Evaluation** | LLM-as-Judge faithfulness, Precision@K, Recall@K, MRR | Measure retrieval + generation quality |
 | **Human Validation** | Gatekeeper, Auditor, Strategist | Human-in-the-loop review and approval |
 
 ---
@@ -61,9 +70,12 @@ flowchart TD
 ## Core API
 
 ```
-POST /ingest    → Parse, chunk, embed, and store documents
-POST /query     → Retrieve context and generate grounded responses
-GET  /health    → System health check
+POST /api/ingest              → Parse, chunk, embed, and store documents
+POST /api/query               → Hybrid retrieve → rerank → generate
+GET  /api/health              → System health check (Qdrant + Postgres)
+POST /api/evaluate            → Run retrieval metrics (P@K, R@K, MRR)
+GET  /api/evaluate/ground-truth  → Fetch evaluation dataset
+POST /api/evaluate/ground-truth  → Upload evaluation dataset
 ```
 
 ---
@@ -118,24 +130,38 @@ By default, the app uses Ollama at `http://localhost:11434` with the `llama3.2` 
 RAG-system/
 │
 ├── app/
-│   ├── api/
-│   │   └── routes/          # FastAPI route handlers (ingest, query, health)
+│   ├── api/routes/
+│   │   ├── health.py        # Deep health check (Qdrant + Postgres)
+│   │   ├── ingest.py        # File upload + ingestion pipeline
+│   │   ├── query.py         # Hybrid retrieve → rerank → generate
+│   │   └── evaluate.py      # Evaluation metrics endpoints
 │   ├── core/
-│   │   ├── ingestion.py     # Document parsing, chunking, metadata
-│   │   ├── embeddings.py    # Embedding model interface
-│   │   ├── vector_store.py  # Vector DB operations
-│   │   ├── retrieval.py     # Semantic search & context retrieval
-│   │   └── generation.py   # LLM generation with reasoning
+│   │   ├── ingestion.py     # Parse → chunk → embed → store
+│   │   ├── embeddings.py    # BGE model with batching
+│   │   ├── vector_store.py  # Qdrant CRUD operations
+│   │   ├── bm25_search.py   # BM25 keyword search (in-memory)
+│   │   ├── reranker.py      # Cross-encoder reranking
+│   │   ├── retrieval.py     # Hybrid pipeline (dense + BM25 → rerank)
+│   │   ├── generation.py    # Gemini LLM generation
+│   │   ├── faithfulness.py  # LLM-as-judge groundedness check
+│   │   └── evaluation.py    # P@K, R@K, MRR evaluation framework
+│   ├── db/
+│   │   ├── session.py       # Async SQLAlchemy engine + sessions
+│   │   └── models.py        # Document, Chunk, QueryLog ORM models
 │   ├── models/
 │   │   └── schemas.py       # Pydantic request/response schemas
 │   ├── utils/
-│   │   └── helpers.py       # Shared utilities
-│   ├── config.py            # System configuration
-│   └── main.py              # FastAPI app entrypoint
+│   │   ├── helpers.py        # File hash, sanitize filename
+│   │   └── logging_config.py # JSON structured logging
+│   ├── config.py            # Pydantic Settings (all config)
+│   └── main.py              # FastAPI app with async lifespan
 │
-├── static/                  # Frontend UI
+├── evaluation/              # Ground truth + eval results
+├── static/                  # Ruixen AI frontend UI
 ├── uploads/                 # Uploaded documents
-├── vector_store_data/       # Persisted vector store
+├── tests/                   # Unit + integration tests
+├── docker-compose.yml       # Postgres + Qdrant + App
+├── Dockerfile               # App container image
 └── requirements.txt
 ```
 
@@ -148,11 +174,16 @@ RAG-system/
 Raw Document → Parse → Chunk → Embed → Store (Vector DB + Metadata DB)
 ```
 
-**Query:**
+**Query (Phase 2 — Hybrid):**
 ```
-User Query → Embed → Vector Search → Retrieve Top-K Chunks
-    → Multi-Agent Routing → Reasoning Engine → LLM Generation
-    → Evaluation → (Stress Test / Human Gate) → Final Response
+User Query → Embed
+  ├── Dense Search (Qdrant top-20)
+  └── BM25 Keyword Search (top-20)
+    → Weighted Merge (alpha=0.7) → Deduplicate
+    → Cross-Encoder Rerank → Final top-5
+    → Gemini LLM Generation
+    → Faithfulness Evaluation (LLM-as-Judge)
+    → Log to Postgres → Return Response
 ```
 
 ---
@@ -181,12 +212,14 @@ User Query → Embed → Vector Search → Retrieve Top-K Chunks
 
 ## Roadmap
 
-- [ ] Hybrid search (BM25 + dense vector)
-- [ ] Cross-encoder reranking
+- [x] ~~Hybrid search (BM25 + dense vector)~~ ✅ Phase 2
+- [x] ~~Cross-encoder reranking~~ ✅ Phase 2
+- [x] ~~Retrieval evaluation (P@K, R@K, MRR)~~ ✅ Phase 2
+- [x] ~~Faithfulness evaluation (LLM-as-Judge)~~ ✅ Phase 2
 - [ ] Streaming responses
 - [ ] Multi-tenant document namespaces
 - [ ] Graph RAG (knowledge graph integration)
 - [ ] Automated red-teaming pipeline
 - [ ] Dashboard UI for evaluation metrics
 - [ ] Full LangGraph multi-agent orchestration
-- [ ] CI/CD with automated RAGAS evaluation on PRs
+- [ ] CI/CD with automated evaluation on PRs
