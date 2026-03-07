@@ -71,41 +71,9 @@ def generate_answer(question: str, context_chunks: list[dict[str, object]]) -> s
         c["content"] for c in context_chunks
     ) or "No relevant context found."
 
-    try:
-        chain = _PROMPT | _get_llm()
-        response = chain.invoke({"context": context_text, "question": question})
-        answer: str = response.content  # type: ignore[union-attr]
-        logger.info("Generated answer (%d chars)", len(answer))
-        return answer
-    except Exception as exc:
-        logger.warning("LLM generation failed; using extractive fallback answer: %s", exc)
-        return _fallback_answer(question, context_chunks)
+    chain = _PROMPT | _get_llm()
+    response = chain.invoke({"context": context_text, "question": question})
 
-
-def _fallback_answer(question: str, context_chunks: list[dict[str, object]]) -> str:
-    """Return a grounded fallback answer when the configured LLM is unavailable."""
-    if not context_chunks:
-        return (
-            "The LLM backend is currently unavailable, and no relevant context was found in the vector store. "
-            "Try again after the model service is back online."
-        )
-
-    snippets = []
-    for chunk in context_chunks[:3]:
-        content = str(chunk.get("content", "")).strip().replace("\n", " ")
-        source = str(chunk.get("source", "")).strip() or "retrieved source"
-        if content:
-            snippets.append(f"- {source}: {content[:280]}")
-
-    if not snippets:
-        return (
-            "The LLM backend is currently unavailable. Relevant chunks were retrieved, but they did not contain "
-            "usable text for a fallback answer."
-        )
-
-    return (
-        "The LLM backend is currently unavailable, so this is a retrieval-only fallback based on the top matching chunks "
-        f"for the question: '{question}'.\n\n"
-        "Relevant excerpts:\n"
-        + "\n".join(snippets)
-    )
+    answer: str = response.content  # type: ignore[union-attr]
+    logger.info("Generated answer (%d chars)", len(answer))
+    return answer
