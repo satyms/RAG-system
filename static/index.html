@@ -3,19 +3,132 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RAG Engine</title>
-  <link rel="stylesheet" href="/static/css/style.css" />
+  <title>RAG Workspace</title>
+  <link rel="stylesheet" href="/static/css/style.css?v=3" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <div id="root"></div>
+  <div class="app-shell" id="app-shell">
+    <aside class="panel panel-sources" aria-label="Sources panel">
+      <div class="panel-header sticky-header">
+        <div>
+          <p class="eyebrow">Knowledge Base</p>
+          <h1>Sources</h1>
+        </div>
+        <button class="button button-primary" id="add-sources-button" type="button">Add Sources</button>
+      </div>
 
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+      <div class="panel-toolbar sticky-block">
+        <label class="search-field" for="source-search">
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-3.5-3.5"></path>
+            </svg>
+          </span>
+          <input id="source-search" type="search" placeholder="Search the web for new sources" autocomplete="off" />
+        </label>
+
+        <select id="source-filter" class="select-field" aria-label="Filter sources by type">
+          <option value="all">All</option>
+          <option value="web">Web</option>
+          <option value="research">Research</option>
+          <option value="documents">Documents</option>
+        </select>
+      </div>
+
+      <div class="panel-scroll" id="sources-scroll">
+        <section class="section-block">
+          <div class="section-heading">
+            <h2>Available Sources</h2>
+            <span class="section-meta" id="selected-source-count">0 selected</span>
+          </div>
+          <div id="sources-list" class="source-list" role="list"></div>
+        </section>
+      </div>
+
+      <input id="source-file-input" type="file" accept=".pdf,.txt,.md,.doc,.docx" multiple hidden />
+    </aside>
+
+    <main class="panel panel-workspace" aria-label="Chat workspace">
+      <div class="workspace-header sticky-header">
+        <div>
+          <p class="eyebrow">AI Workspace</p>
+          <h2>Research Notebook</h2>
+        </div>
+        <div class="workspace-actions">
+          <button class="button button-ghost" type="button">Create Notebook</button>
+          <button class="button button-ghost" type="button">Analytics</button>
+          <button class="button button-ghost" type="button">Share</button>
+          <button class="button button-ghost" type="button">Settings</button>
+          <button class="button button-ghost" id="clear-history-button" type="button">Clear History</button>
+        </div>
+      </div>
+
+      <section class="conversation-shell">
+        <div class="conversation-scroll" id="messages-container" aria-live="polite"></div>
+
+        <div class="composer-shell sticky-footer">
+          <div class="selection-chip-row" id="selected-sources-bar"></div>
+          <form id="chat-form" class="composer" novalidate>
+            <label class="sr-only" for="chat-input">Message</label>
+            <textarea id="chat-input" rows="1" placeholder="Start typing..." autocomplete="off"></textarea>
+            <button class="button button-primary send-button" id="send-button" type="submit">Send</button>
+          </form>
+          <p class="composer-hint">Enter sends. Shift + Enter adds a new line.</p>
+        </div>
+      </section>
+    </main>
+
+    <aside class="panel panel-studio" aria-label="Studio tools">
+      <div class="panel-header sticky-header">
+        <div>
+          <p class="eyebrow">Create</p>
+          <h2>Studio</h2>
+        </div>
+      </div>
+
+      <div class="panel-scroll studio-scroll">
+        <section class="section-block">
+          <div class="section-heading">
+            <h2>Tools</h2>
+          </div>
+          <div id="studio-tools-grid" class="tools-grid"></div>
+        </section>
+
+        <section class="section-block recent-notes-section">
+          <div class="section-heading">
+            <h2>Recent Outputs</h2>
+          </div>
+          <div id="generated-notes-list" class="notes-list"></div>
+          <button class="button button-secondary add-note-button" id="add-note-button" type="button">Add Note</button>
+        </section>
+      </div>
+    </aside>
+  </div>
+
+  <div class="viewer-backdrop is-hidden" id="artifact-viewer" aria-hidden="true">
+    <section class="viewer-panel" aria-label="Generated output viewer">
+      <div class="viewer-header">
+        <div>
+          <p class="eyebrow">Generated Output</p>
+          <h3 id="viewer-title">Output Viewer</h3>
+          <p class="viewer-meta" id="viewer-meta"></p>
+        </div>
+        <button class="button button-ghost" id="viewer-close-button" type="button">Close</button>
+      </div>
+      <div class="viewer-body" id="viewer-body"></div>
+    </section>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
-  <script type="text/babel" src="/static/js/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+  <script src="/static/js/app.js?v=3"></script>
 </body>
 </html>
