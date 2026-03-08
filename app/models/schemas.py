@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -22,6 +24,27 @@ class SourceChunk(BaseModel):
 class QueryResponse(BaseModel):
     """Payload returned to the chat UI."""
     answer: str
+    sources: list[SourceChunk] = []
+
+
+# ── Study Studio ───────────────────────────────────────────
+ArtifactType = Literal["flashcards", "quiz", "mind_map"]
+
+
+class StudyArtifactRequest(BaseModel):
+    """Payload sent by the studio UI to generate a study artifact."""
+
+    artifact_type: ArtifactType = Field(..., description="Requested artifact type")
+    top_k: int = Field(default=12, ge=4, le=30, description="Number of chunks to use")
+
+
+class StudyArtifactResponse(BaseModel):
+    """Structured study artifact returned to the frontend studio."""
+
+    artifact_type: ArtifactType
+    title: str
+    summary: str
+    content: dict[str, Any]
     sources: list[SourceChunk] = []
 
 

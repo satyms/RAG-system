@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.config import settings
-from app.api.routes import health, ingest, query
+from app.api.routes import health, ingest, query, study
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
@@ -62,6 +62,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(ingest.router)
 app.include_router(query.router)
+app.include_router(study.router)
 
 # ── Static files & SPA fallback ─────────────────────────────
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
